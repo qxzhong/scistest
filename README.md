@@ -251,8 +251,9 @@ ruff check .
 ```
 
 ## Reference
+Qixian Zhong and Rajen D. Shah (2026), “Conditional Independence Testing with Survival Data,” *Submitted*.
 
-The aggregation follows Guo, F. Richard and Rajen D. Shah (2025),
+Guo, F. Richard and Rajen D. Shah (2025),
 “Rank-transformed subsampling: inference for multiple data splitting and
 exchangeable p-values,” *Journal of the Royal Statistical Society Series B*,
 87(1), 256–286.
