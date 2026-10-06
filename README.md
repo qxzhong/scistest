@@ -1,13 +1,15 @@
 # Conditional Independence Testing with Survival Data
 
 `scistest` implements the conditional-independence test developed for
-right-censored outcomes. It is based on the paper ``Conditional Independence Testing with Survival Data" by Qixian Zhong (Xiamen University) and Rajen Shah (University of Cambridge).
+right-censored outcomes. It is based on the paper ``Conditional Independence Testing with Survival Data" by Qixian Zhong (Xiamen University) and Rajen Shah (University of Cambridge). 
 
 Given observations
+
 $$
 (X_i,Z_i,T_i,\Delta_i),\qquad
 T_i=\min(U_i,C_i),\quad \Delta_i=\mathbf 1(U_i\le C_i),
 $$
+
 where $X$ and $Z$ are covariates, and $U$ and $C$ are event and censoring time, respectively. The package tests
 
 $$
