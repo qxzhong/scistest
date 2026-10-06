@@ -136,10 +136,10 @@ result = scis_test(
 The forest partitions the `(time, Z, X)` feature space. Conditional on those
 partitions, its terminal-node values are obtained by sparse least squares using
 
-\[
+$$
 \sum_i\{V_i(\phi)^2-V_i(\phi)\}
 =\sum_i\{V_i(\phi)-1/2\}^2-n_1/4.
-\]
+$$
 
 Thus both direction estimators target the same criterion; only the function
 class and optimization method differ. The hazard and conditional-generator
@@ -170,22 +170,22 @@ omitted.
 
 Each permutation divides the data into `K` disjoint blocks of common size
 
-\[
+$$
 \texttt{subsample\_size}=\lfloor n/K\rfloor.
-\]
+$$
 
 The remaining `n % K` observations are unused in that permutation. Thus the
 number of calibration rows is
 
-\[
+$$
 B=JK.
-\]
+$$
 
 All \(BL\) subsample statistics are pooled for the randomized rank transform
 
-\[
+$$
 \widetilde H_{b\ell}=\Phi^{-1}\left\{\frac{R_{b\ell}-1/2}{BL}\right\}.
-\]
+$$
 
 The full-sample and row-wise calibration aggregates are arithmetic means over
 the \(L\) split statistics. The primary result is the Gaussian-kernel-smoothed
