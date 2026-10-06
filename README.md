@@ -73,18 +73,18 @@ print(result.p_value)
 ```
 
 `scisTest` is provided as an alias for `scis_test`. The returned
-`SciTestResult` also includes `log_p_value`, the held-out score moments, sample
+`ScisTestResult` also includes `log_p_value`, the held-out score moments, sample
 indices, and the individual orthogonalized scores. Use
 `result.as_dict(include_arrays=False)` for JSON-friendly scalar output.
 
 For each split, the package:
 
-1. fits the null hazard \(\lambda(t\mid Z)=\exp\{g(t,Z)\}\) on the hunting sample
+1. fits the null hazard $\lambda(t\mid Z)=\exp\{g(t,Z)\}$ on the hunting sample
    using the penalized negative counting-process log-likelihood;
-2. learns \(\phi\), by default with a DNN, by minimizing exactly
-   \(\sum_i V_i(\phi)^2-\sum_i V_i(\phi)\);
+2. learns $\phi$, by default with a DNN, by minimizing exactly
+   $\sum_i V_i(\phi)^2-\sum_i V_i(\phi)$;
 3. fits engression for the joint conditional distribution
-   \(P_{(X,T)\mid Z}\) on the test sample;
+   $P_{(X,T)\mid Z}$ on the test sample;
 4. constructs the orthogonalized held-out scores and reports the one-sided
    standard-normal tail probability.
 
@@ -137,8 +137,7 @@ The forest partitions the `(time, Z, X)` feature space. Conditional on those
 partitions, its terminal-node values are obtained by sparse least squares using
 
 $$
-\sum_i\{V_i(\phi)^2-V_i(\phi)\}
-=\sum_i\{V_i(\phi)-1/2\}^2-n_1/4.
+\sum_i[V_i(\phi)^2-V_i(\phi)].
 $$
 
 Thus both direction estimators target the same criterion; only the function
