@@ -170,7 +170,7 @@ omitted.
 Each permutation divides the data into `K` disjoint blocks of common size
 
 $$
-\texttt{subsample\_size}=\lfloor n/K\rfloor.
+\texttt{subsample size}=\lfloor n/K\rfloor.
 $$
 
 The remaining `n % K` observations are unused in that permutation. Thus the
