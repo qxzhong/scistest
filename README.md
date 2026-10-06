@@ -1,18 +1,18 @@
-# scisTest for censored survival data
+# Conditional Independence Testing with Survival Data
 
 `scistest` implements the conditional-independence test developed for
 right-censored outcomes. Given observations
 
-\begin{equation}
+$$
 (X_i,Z_i,T_i,\Delta_i),\qquad
 T_i=\min(U_i,C_i),\quad \Delta_i=\mathbf 1(U_i\le C_i),
-\end{equation}
+$$
 
 the package tests
 
-\[
+$$
 H_0: U\perp X\mid Z.
-\]
+$$
 
 The repository contains the single-split `scis_test` implementation, the
 Guo--Shah (2025) rank-transformed subsampling aggregation, a small demo, a
