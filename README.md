@@ -3,10 +3,10 @@
 `scistest` implements the conditional-independence test developed for
 right-censored outcomes. Given observations
 
-\[
+\begin{equation}
 (X_i,Z_i,T_i,\Delta_i),\qquad
 T_i=\min(U_i,C_i),\quad \Delta_i=\mathbf 1(U_i\le C_i),
-\]
+\end{equation}
 
 the package tests
 
