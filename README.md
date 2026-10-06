@@ -183,7 +183,7 @@ $$
 All \(BL\) subsample statistics are pooled for the randomized rank transform
 
 $$
-\widetilde H_{b\ell}=\Phi^{-1}\left\{\frac{R_{b\ell}-1/2}{BL}\right\}.
+\widetilde H_{b\ell}=\Phi^{-1}[\frac{R_{b\ell}-1/2}{BL}].
 $$
 
 The full-sample and row-wise calibration aggregates are arithmetic means over
