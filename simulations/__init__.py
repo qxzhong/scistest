@@ -1,1 +1,1 @@
-"""Reproduction programs for main6, distributed in the source archive."""
+"""Simulation reproduction programs, distributed in the source archive."""

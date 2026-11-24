@@ -1,1 +1,1 @@
-"""Optional comparison methods used in main6 simulations."""
+"""Optional comparison methods used in the simulation studies."""

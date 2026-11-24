@@ -2,8 +2,8 @@
 
 `scistest` tests **U ⟂ X | Z** from right-censored observations
 `(X, Z, T, event)`, where `T = min(U, C)` and `event = 1[U <= C]`.
-This research release follows **main6.tex** of *Conditional Independence
-Testing with Survival Data* by Qixian Zhong and Rajen Shah.
+This package implements the method in *Conditional Independence Testing
+with Survival Data* by Qixian Zhong and Rajen Shah.
 
 Version **0.2.0** refits the null hazard on the evaluation half before scoring.
 The hunting hazard is used only to learn the direction. The conditional
@@ -69,7 +69,7 @@ the hunting half; the scoring hazard `lambda_E` and conditional engression
 generator use the evaluation half. RF does not replace engression.
 
 RF first constructs tree partitions and then refits their leaf contributions
-under main6's penalized losses: mean survival negative log likelihood for
+under the paper's penalized losses: mean survival negative log likelihood for
 each hazard, and `sum(V**2 - V) + eta_phi * ||gamma||_1` for the direction.
 The forest prediction sums effective leaf contributions; L1 penalizes these
 contributions, rather than conventional averaged leaf values.
@@ -114,7 +114,7 @@ width `floor(2*sqrt(n))`, learning rate `2/n`, L1 penalty `5/n` for hazard and
 direction, `floor(50*log(n)/log(20))` epochs, and engression layer parameter
 `1 + floor(log10(n))`. Integration uses **100 points by default**, following
 the manuscript and the author's explicit choice. Historical cluster figure
-runs used a different integration grid; see [reproduction notes](docs/MAIN6.md).
+runs used a different integration grid; see [reproduction notes](docs/IMPLEMENTATION.md).
 
 ## Split aggregation
 
@@ -137,7 +137,7 @@ The unsmoothed empirical tail and log probabilities are retained. Generic
 `aggregate_p_value` and `calibrate_aggregated_p_value` interfaces also accept
 other statistics or already computed matrices. The Framingham reproduction
 script reuses one calibration distribution per covariate across 1,000
-full-data repetitions, as in main6.
+full-data repetitions, as in the paper.
 
 ## Repository layout
 
@@ -156,7 +156,7 @@ tests/                     aggregation, method and manuscript regressions
 docs/                      reproduction details and source fingerprints
 ```
 
-## Reproduce main6
+## Reproduce the numerical studies
 
 Run these commands **from the repository root** after installation:
 

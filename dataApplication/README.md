@@ -11,7 +11,7 @@ python -m dataApplication.plot
 
 The program loads SurvSet's Framingham dataset at runtime. Across the six
 covariates it drops incomplete cases, normalizes F/M or numeric 2/1 sex codes to 0/1, and requires the
-main6 analysis sample: 4,658 subjects and 1,465 events. No raw dataset is
+reference analysis sample: 4,658 subjects and 1,465 events. No raw dataset is
 bundled. Runtime data snapshots, fit checkpoints, aggregate tables and plots
 are written only under the requested output directory (default
 `results/framingham`, ignored by Git).

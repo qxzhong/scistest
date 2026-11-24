@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Main6 data-generating mechanisms and frozen simulation seed mapping."""
+"""Simulation data-generating mechanisms and frozen simulation seed mapping."""
 
 from __future__ import annotations
 

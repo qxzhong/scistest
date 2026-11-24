@@ -1,9 +1,8 @@
-# Main6 implementation and provenance
+# Implementation and provenance
 
 Updated on 2026-11-23. `source_provenance.json` records source hashes and the
-cluster directories used. The original local upload directory was backed up
-to a sibling `github_before_main6_*` directory before editing. It is outside
-the upload tree.
+cluster directories used. The original source files were backed up outside
+the repository before editing.
 
 The starting library was reconciled with the current public qxzhong/scistest
 source archive, retaining its scistest naming, K/J/L aggregation interface,
@@ -11,9 +10,9 @@ MIT license and optional random-forest direction estimator. The old local
 scitest namespace still delegates to the updated method; its Q-based
 aggregation module is retained for existing local callers.
 
-## Mapping to main6
+## Implementation overview
 
-| Main6 operation | Source in this repository |
+| Method operation | Source in this repository |
 | --- | --- |
 | Training-half pilot hazard and hunting direction | src/scistest/core.py |
 | Evaluation-half generator and refitted lambda_E | src/scistest/core.py |
@@ -25,10 +24,10 @@ aggregation module is retained for existing local callers.
 | vim, GCM, PCM, deepTest | simulations/comparators/ |
 | Complete-case Framingham and repeated calibration | dataApplication/run_framingham.py |
 
-The three-split procedure in main6 is used for theoretical exposition; the
+The three-split procedure in the paper is used for theoretical exposition; the
 numerical experiments and this library's primary interface implement the
 paper's practical **two-split** procedure. The commented older supplementary
-simulation/application text in main6 is not treated as a second numerical
+simulation/application text in earlier drafts is not treated as a second numerical
 protocol.
 
 Omitted NN configurations resolve to `simulation_configs(n)` and RF
@@ -45,13 +44,13 @@ The detailed equation audit and numerical conventions are in
 
 ## Explicit decisions and reproducibility limits
 
-1. **Integration:** main6's text specifies 100 points, while the cluster's
-   main6 figure run used floor(10 sqrt(n)). The author explicitly selected
+1. **Integration:** the paper specifies 100 points, while the historical
+   cluster figure run used floor(10 sqrt(n)). The author explicitly selected
    fixed 100 points for this repository. No figure or p-value from the
    historical run is claimed to be reproduced by the default grid.
 2. **Objectives:** simulations use the penalized quadratic hunting objective;
    Framingham uses the penalized standardized objective and best-epoch
-   selection, matching its main6 description and cluster implementation.
+   selection, matching the paper and cluster implementation.
 3. **Hazard clipping:** both event and integrated-hazard terms now use the
    same clipped log hazard, following the corrected simulation fitter.
    The older Framingham cluster fitter left the event term unclipped. This
@@ -60,7 +59,7 @@ The detailed equation audit and numerical conventions are in
    predictions at repeated Z values, as in the cluster implementation.
    Engression is pinned to 0.1.15. Exact numerical agreement also depends on
    the remaining library versions, platform and floating-point behavior.
-5. **Comparators:** cluster main6 simulation figures reused comparator
+5. **Comparators:** historical cluster simulation figures reused comparator
    results from earlier runs. The repository includes executable adapters,
    not those historical outputs. New comparisons use the shared DGPs.
 6. **Result exclusion:** no source dataset, final p-value table, plot, fitted

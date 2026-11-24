@@ -1,6 +1,6 @@
-# main6 two-split implementation audit
+# Two-split implementation audit
 
-Audited on 2026-11-23 against the local `tex/main6.tex`. This audit covers
+Audited on 2026-11-23 against the research paper. This audit covers
 the practical two-split procedure, its NN implementation, and the optional
 RF estimators. The three-split theoretical algorithm is not implemented.
 The manuscript was not edited as part of this audit. Exact source hashes

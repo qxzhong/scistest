@@ -1,4 +1,4 @@
-"""Plot main6 simulation panels from results computed by this repository."""
+"""Plot simulation panels from results computed by this repository."""
 
 from __future__ import annotations
 

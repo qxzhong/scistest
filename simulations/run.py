@@ -1,4 +1,4 @@
-"""Run main6 simulations; invoke from the repository root with python -m simulations.run."""
+"""Run the simulation studies; invoke from the repository root with python -m simulations.run."""
 
 from __future__ import annotations
 

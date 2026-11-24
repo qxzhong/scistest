@@ -1,4 +1,4 @@
-"""Explicit main6 settings for simulations and the Framingham application."""
+"""Explicit study settings for simulations and the Framingham application."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from .config import (
 def simulation_configs(n: int, *, integration_points: int = 100) -> dict:
     """Use total dataset size n, including for every calibration subsample.
 
-    The fixed 100-point grid follows main6.tex. The historical figure run used
+    The fixed 100-point grid follows the paper. The historical figure run used
     floor(10 sqrt(n)); callers can request that grid explicitly.
     """
     if isinstance(n, bool) or int(n) != n or n < 12:
@@ -52,7 +52,7 @@ def forest_configs(n: int, parameters: dict | None = None) -> dict:
 
     Penalties apply to effective leaf contributions, whose sum is the forest
     prediction. Equivalently, these are conventional averaged leaf values
-    divided by the number of trees. Defaults follow main6's RF table: 32
+    divided by the number of trees. Defaults follow the paper's RF specification: 32
     hazard trees, 16 direction trees, depth 3, and penalties 5/n and 50/n.
     This constructs estimator settings only; it does not run experiments.
     """

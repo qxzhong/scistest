@@ -181,7 +181,7 @@ def initialize_run(output: Path, repetitions: int) -> dict:
     data, data_path = load_and_save_data(output)
     n = len(data)
     if n != 4658 or int(data.event.sum()) != 1465:
-        raise ValueError("Framingham data differs from main6 complete cases")
+        raise ValueError("Framingham data does not match the reference complete-case sample")
     if n // M != 3:
         raise ValueError(f"expected floor(n/m)=3, got n={n} and m={M}")
     tuples = ordered_subsamples(n, M, J, seed_for(0, 9, 0, 0))
@@ -244,7 +244,7 @@ def initialize_run(output: Path, repetitions: int) -> dict:
             "Within each fit: X is min-max scaled and Z is standardized using the training half; "
             "time is divided by the training-half maximum."
         ),
-        "generator_fit_sample": "test half, as specified in main6.tex",
+        "generator_fit_sample": "test half, as specified in the paper",
         "scoring_hazard": "evaluation",
         "integration_grid": "fixed 100 points",
         "covariates": list(COVARIATES),
