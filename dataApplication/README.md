@@ -1,4 +1,4 @@
-# Framingham Heart Study application (main6)
+# Framingham Heart Study application
 
 Install `pip install -e '.[experiments]'` and run from the repository root:
 
@@ -24,7 +24,7 @@ uses the best checkpoint of the standardized hunting objective. The generator
 and scoring hazard are fitted on the evaluation half. Both numerical counts
 are 100: integration points and generator draws.
 
-Master seed 498121629 is retained. Each covariate gets J=10 permutations,
+Each covariate gets J=10 permutations,
 m=1552, B=30 calibration rows and L=3 splits. One pooled rank-transformed
 calibration distribution is reused for all 1,000 full-data repetitions.
 Gaussian-kernel tails use bw.nrd0 and log-domain evaluation; decimal strings
