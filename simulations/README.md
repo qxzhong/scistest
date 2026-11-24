@@ -7,7 +7,7 @@ fits), n = 200,400,600,800,1000, one worker, and **100 integration points**.
 replication with one training epoch and 8 integration points/generator draws.
 Smoke records are labeled and refused by the manuscript plotting program.
 
-| Group | Main6 section | Settings |
+| Group | Study setting | Settings |
 | --- | --- | --- |
 | case1 | survival-method comparison | six hypotheses, nonlinear correlated W |
 | case3a | complete-case comparison (a) | six a values, marginal event null |
@@ -46,8 +46,8 @@ as response and random-forest nuisance regressions. vim uses all censored
 observations and the AUC settings from the cluster script.
 
 These adapters can run fresh comparisons on the common DGPs. The historical
-main6 figures reused comparator curves from an earlier cluster run; exact
+simulation figures reused comparator curves from an earlier cluster run; exact
 old comparator p-values are not bundled or implied by a new run.
 `--integration-grid cluster` selects floor(10 sqrt(n)) for the proposed
-method to recover the historical main6 simulation grid. Use a separate output
+method to recover the historical simulation grid. Use a separate output
 directory for this option; the default remains the manuscript's fixed 100.

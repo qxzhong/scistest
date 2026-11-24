@@ -22,7 +22,7 @@
     "comparators/code/hpc_main5_10000/new_seed_r_worker.R": "06554e528b9117796db3a52ef70b1119e1c8ab9ec7b8f459e9525e66389f8b28"
   },
   "integration_points_default": 100,
-  "integration_decision": "User explicitly selected fixed 100 points per main6.tex, rather than historical floor(10 sqrt(n)).",
+  "integration_decision": "The paper and package use fixed 100 points, rather than historical floor(10 sqrt(n)).",
   "contains_precomputed_results": false,
   "cluster_python_packages": {
     "torch": "2.4.1+cpu",
@@ -46,8 +46,8 @@
     "src/scistest/_models.py": "6ff550b899de3b877dbdda1f0200c29a38ab3331a0e9709ca53b53cf67cf295d",
     "src/scistest/aggregation.py": "2086c3fcd6d9c7c1660be63383f98690c94b530ba723f0fe845d7c53097b77a5",
     "src/scistest/config.py": "2af999b577efef38ad6603dda6e710712978f1d4fa4b18aa3d508436ceab191d",
-    "src/scistest/core.py": "5168e6143bc7d06c6f4fc266d834c47bebe62d67432c8d7e27f52622247279e3",
-    "src/scistest/manuscript.py": "11492e29753b384e8bff0836a157700e488b8e4c563f9af33a051966ff050a91",
+    "src/scistest/core.py": "9d990d628a0abc18663d90befbcbcb2eef4c72960105b59f7487f30c377b771c",
+    "src/scistest/manuscript.py": "c2be02dc4abba3cf099fef7303f53620eb7eb8aac7c1b74145c1610a253cc62b",
     "src/scistest/simulation.py": "7f0f478881424634e7a70fb24ca9214cd76d2e5608a9d2512691058a9313a621",
     "src/scitest/__init__.py": "b7a76a6eff4d6d83f6a350e78b2d589284fc4f241d94f9240da0b6b1fa5ec150",
     "src/scitest/_models.py": "04330612040d00fa767a569273fa09d27f00769605bb9aff488d22077d5c926d",
@@ -55,5 +55,6 @@
     "src/scitest/config.py": "c7c10fb951f4c602d96b25b0119cc656d03cec5c00a8ad9bd2923c4dceaaa94d",
     "src/scitest/core.py": "ead67db0488d93958a377a54f328c33af4fca89790ab586da09f73466ae595a3",
     "src/scitest/simulation.py": "f874fa7c22c4bf69f65597e1934a0b762a2e69f9de44d4a2fd24d223b242dc63"
-  }
+  },
+  "public_labels_updated_on": "2026-11-24"
 }

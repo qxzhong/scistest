@@ -593,7 +593,7 @@ def scis_test(
     _set_random_seeds(random_state + 4)
     conditional_generator = EngressionGenerator(x_dim=data.x_test.shape[1])
     conditional_generator.fit(data.z_test, data.x_test, data.time_test, generator_config)
-    # main6: use the same fitting rule on the evaluation half for lambda_E.
+    # Use the same fitting rule on the evaluation half for lambda_E.
     evaluation_hazard = _fit_hazard(
         data.z_test,
         data.time_test,
