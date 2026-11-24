@@ -8,3 +8,18 @@ build/
 dist/
 results/
 .DS_Store
+
+# Generated experiment artifacts and local data
+**/results/
+**/figures/
+**/logs/
+**/checkpoints/
+*.pt
+*.pth
+*.npy
+*.npz
+*.csv
+*.pdf
+*.png
+*.tar.gz
+*.whl

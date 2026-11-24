@@ -1,0 +1,59 @@
+{
+  "manuscript": "main6.tex",
+  "manuscript_sha256": "c3e26d6398a24a1909ee0662bb8b7bf6c8d34d04365d86617ee91f5106dc1b28",
+  "prepared_on": "2026-11-23",
+  "upstream_repository": "https://github.com/qxzhong/scistest",
+  "upstream_archive_sha256": "127204c7fe75a9a7c56665a3ad92c7e351b7a02b214d4cbcc1c523b002b3bef3",
+  "cluster_source_directories": [
+    "IndepSurv_main6_dynamic_grid_formulaH_20261119",
+    "IndepSurv_FHS_lambdaE_20261117",
+    "IndepSurv_main5_fig123_newseed_10000_20261113",
+    "IndepSurv_main6_RF_L1_case23_FHS_20261120",
+    "IndepSurv_main6_RF_FHS_retune_20261120"
+  ],
+  "source_sha256": {
+    "simulation/code/hpc_validation_grid/protocol.py": "a8a323a37806e706c58087b012d526a7e48ab56abded048d70f32daaf9097056",
+    "simulation/code/hpc_validation_grid/paired_method.py": "df9202946f8a5eb9b804be89e607f5721e526a29c6f9ea4a5c9e781af45dcb3c",
+    "simulation/code/hpc_validation_grid/corrected_formula_threeway.py": "01ea3cdb4757f32a7e5b81ec1c6dcfd289601d986c0e8aebc9905116074d398a",
+    "simulation/code/hpc_dynamic_grid_20261119/worker.py": "dbf247b238dd8326f825c19ce4702b66493c1113991062b5d3054d537eefd9f7",
+    "fhs/code/sciTest/run_framingham_repeated_aggregation.py": "3bdb81cb3594fed930a21a6175109ab3cebbc176b13664bf3d515d79cfbd543c",
+    "fhs/code/sciTest/survival_ci_test.py": "49cc26139545640149419c87453f6e54d3eadc09dff1536c06e4833848dadbb9",
+    "comparators/code/deepTest/ftns.py": "74deb66bdf9030359492d9c460fb09edfd9fb96320ce610f9e2511f39c5ada3a",
+    "comparators/code/hpc_main5_10000/new_seed_r_worker.R": "06554e528b9117796db3a52ef70b1119e1c8ab9ec7b8f459e9525e66389f8b28"
+  },
+  "integration_points_default": 100,
+  "integration_decision": "User explicitly selected fixed 100 points per main6.tex, rather than historical floor(10 sqrt(n)).",
+  "contains_precomputed_results": false,
+  "cluster_python_packages": {
+    "torch": "2.4.1+cpu",
+    "numpy": "1.26.4",
+    "scipy": "1.13.1",
+    "pandas": "2.2.2",
+    "engression": "0.1.15"
+  },
+  "previous_manuscript_sha256": "f92353ad3518156f47c5e70f75dc048d999739b417105a452928902fe06d2b7d",
+  "algorithm": "two-split only; repeated splits do not introduce a third subset",
+  "rf_selection": "scis_test(..., estimator=\"rf\") and aggregated_scis_test(..., estimator=\"rf\")",
+  "rf_experiment_runners_included": false,
+  "rf_cluster_source_sha256": {
+    "/public/home/alpha/IndepSurv_main6_RF_L1_case23_FHS_20261120/src/scistest/_forest.py": "081e7fa3b3002bf56ad571dc8e6c54c7966e3cb0dcc397cfd6aaec310f1b4120",
+    "/public/home/alpha/IndepSurv_main6_RF_L1_case23_FHS_20261120/src/scistest/_lasso.py": "8a570017bc24701879cc10f1d2efabdf5a9524e9e7cc31801e7b88ed108bfb9d"
+  },
+  "local_source_sha256": {
+    "src/scistest/__init__.py": "5518dd031699d117d08b9b87cf7112db3130c5c527ae0225a16db73ad562551c",
+    "src/scistest/_forest.py": "081e7fa3b3002bf56ad571dc8e6c54c7966e3cb0dcc397cfd6aaec310f1b4120",
+    "src/scistest/_lasso.py": "8a570017bc24701879cc10f1d2efabdf5a9524e9e7cc31801e7b88ed108bfb9d",
+    "src/scistest/_models.py": "6ff550b899de3b877dbdda1f0200c29a38ab3331a0e9709ca53b53cf67cf295d",
+    "src/scistest/aggregation.py": "2086c3fcd6d9c7c1660be63383f98690c94b530ba723f0fe845d7c53097b77a5",
+    "src/scistest/config.py": "2af999b577efef38ad6603dda6e710712978f1d4fa4b18aa3d508436ceab191d",
+    "src/scistest/core.py": "5168e6143bc7d06c6f4fc266d834c47bebe62d67432c8d7e27f52622247279e3",
+    "src/scistest/manuscript.py": "11492e29753b384e8bff0836a157700e488b8e4c563f9af33a051966ff050a91",
+    "src/scistest/simulation.py": "7f0f478881424634e7a70fb24ca9214cd76d2e5608a9d2512691058a9313a621",
+    "src/scitest/__init__.py": "b7a76a6eff4d6d83f6a350e78b2d589284fc4f241d94f9240da0b6b1fa5ec150",
+    "src/scitest/_models.py": "04330612040d00fa767a569273fa09d27f00769605bb9aff488d22077d5c926d",
+    "src/scitest/aggregation.py": "809b7d552954139208123954ab74ddc077a1825a4254ced459e867303a00e5e4",
+    "src/scitest/config.py": "c7c10fb951f4c602d96b25b0119cc656d03cec5c00a8ad9bd2923c4dceaaa94d",
+    "src/scitest/core.py": "ead67db0488d93958a377a54f328c33af4fca89790ab586da09f73466ae595a3",
+    "src/scitest/simulation.py": "f874fa7c22c4bf69f65597e1934a0b762a2e69f9de44d4a2fd24d223b242dc63"
+  }
+}

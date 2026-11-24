@@ -24,6 +24,8 @@ class DirectionConfig:
     hidden_dims: tuple[int, ...] = (32, 32)
     learning_rate: float = 0.01
     epochs: int = 100
+    l1_penalty: float = 0.001
+    objective: str = "quadratic"
 
 
 @dataclass(frozen=True)
@@ -38,6 +40,23 @@ class RandomForestDirectionConfig:
     n_jobs: int | None = None
     solver_tolerance: float = 1e-8
     solver_max_iterations: int | None = None
+    l1_penalty: float = 0.0
+
+
+@dataclass(frozen=True)
+class RandomForestHazardConfig:
+    """Forest partitions with leaf coefficients fitted by survival likelihood + L1."""
+
+    n_estimators: int = 32
+    max_depth: int = 4
+    min_samples_leaf: int = 20
+    max_features: float = 0.8
+    bootstrap: bool = True
+    n_jobs: int = 1
+    l1_penalty: float = 0.01
+    solver_tolerance: float = 1e-6
+    solver_max_iterations: int = 1000
+    max_abs_log_hazard: float = 15.0
 
 
 @dataclass(frozen=True)
