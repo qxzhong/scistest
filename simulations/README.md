@@ -1,4 +1,4 @@
-# Main6 simulations
+# simulations
 
 From the repository root, install `pip install -e '.[experiments]'`.
 `python -m simulations.run` defaults to 200 repetitions of 120 cells (24,000
