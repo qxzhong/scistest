@@ -85,9 +85,7 @@ def test_validate_survival_data_accepts_vector_x_and_z() -> None:
 
 def test_validate_survival_data_rejects_nonbinary_event() -> None:
     with pytest.raises(ValueError, match="only 0 and 1"):
-        validate_survival_data(
-            np.ones(12), np.ones((12, 2)), np.ones(12), np.full(12, 0.5)
-        )
+        validate_survival_data(np.ones(12), np.ones((12, 2)), np.ones(12), np.full(12, 0.5))
 
 
 def test_simulation_null_and_censoring_are_well_formed() -> None:

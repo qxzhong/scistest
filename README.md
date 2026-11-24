@@ -1,259 +1,201 @@
-# Conditional Independence Testing with Survival Data
+# scistest: conditional independence testing with survival data
 
-`scistest` implements the conditional-independence test developed for
-right-censored outcomes. It is based on the paper ``Conditional Independence Testing with Survival Data" by Qixian Zhong (Xiamen University) and Rajen Shah (University of Cambridge). 
+`scistest` tests **U ⟂ X | Z** from right-censored observations
+`(X, Z, T, event)`, where `T = min(U, C)` and `event = 1[U <= C]`.
+This research release follows **main6.tex** of *Conditional Independence
+Testing with Survival Data* by Qixian Zhong and Rajen Shah.
 
-Given observations
+Version **0.2.0** refits the null hazard on the evaluation half before scoring.
+The hunting hazard is used only to learn the direction. The conditional
+engression model is also fitted on the evaluation half. Preprocessing constants
+are estimated on the hunting half; score moments use the population variance
+convention (`ddof=0`), and inference uses a one-sided normal tail.
 
-$$
-(X_i,Z_i,T_i,\Delta_i),\qquad
-T_i=\min(U_i,C_i),\quad \Delta_i=\mathbf 1(U_i\le C_i),
-$$
+## Install
 
-where $X$ and $Z$ are covariates, and $U$ and $C$ are event and censoring time, respectively. The package tests
-
-$$
-H_0: U\perp X\mid Z.
-$$
-
-The repository contains the single-split `scis_test` implementation, the
-Guo--Shah (2025) rank-transformed subsampling aggregation, a small demo, a
-simulation runner, and unit tests. The code is currently a research release
-(`0.1.0`); freeze the version and package settings used for any reported
-numerical experiment.
-
-The package is maintained by Qixian Zhong and Rajen Shah and distributed
-under the MIT License.
-
-## Repository layout
-
-```text
-.
-├── pyproject.toml
-├── src/scistest/
-│   ├── core.py          # single-split scisTest and its p-value
-│   ├── aggregation.py   # Guo--Shah aggregated p-value
-│   ├── config.py        # typed hyperparameter configurations
-│   └── simulation.py    # reproducible example data generator
-├── examples/
-│   ├── demo.py
-│   └── demo.ipynb
-├── scripts/run_simulation.py
-└── tests/
-```
-
-## Installation
-
-From this directory, create an isolated environment and install the package:
+Python 3.10 or newer is required. From this repository:
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-python -m pip install --upgrade pip
 python -m pip install -e .
+# Reproduction scripts, Framingham loader and plotting:
+python -m pip install -e '.[dev,experiments]'
 ```
 
-For development tools, use `python -m pip install -e '.[dev]'`.
+Engression is pinned to 0.1.15, the version used by the cluster implementation.
+The distribution and primary import are both named `scistest`. The old
+`scitest` namespace and `sci_test` spelling remain available for compatibility.
 
-## Single-split test
+## Test your data
 
 ```python
 from scistest import scis_test
 
-result = scis_test(
-    x=X,             # shape (n,) or (n, d_x)
-    z=Z,             # shape (n,) or (n, d_z)
-    time=T,          # observed min(event time, censoring time), shape (n,)
-    event=Delta,     # 1=event observed, 0=right censored, shape (n,)
-    random_state=1,
-)
-
-print(result.test_statistic)
-print(result.p_value)
+result = scis_test(X, Z, T, event, random_state=1)
+print(result.test_statistic, result.p_value)
+print(result.as_dict())
 ```
 
-`scisTest` is provided as an alias for `scis_test`. The returned
-`ScisTestResult` also includes `log_p_value`, the held-out score moments, sample
-indices, and the individual orthogonalized scores. Use
-`result.as_dict(include_arrays=False)` for JSON-friendly scalar output.
+`X` and `Z` are numeric vectors or matrices with one row per subject; `T` and
+`event` are vectors. Inputs must be finite, times nonnegative, and event values
+0/1. `scisTest` is an alias for `scis_test`. Zero or nonfinite score variance
+raises an error instead of silently producing a p-value.
 
-For each split, the package:
+Configure networks with `HazardConfig`, `DirectionConfig`, `GeneratorConfig`
+and `SciTestConfig`. The default direction objective is
+`sum(V**2) - sum(V) + l1_penalty * ||weights||_1`.
+`DirectionConfig(objective="standardized")` selects the standardized hunting
+objective and best-epoch checkpoint used in the Framingham application.
 
-1. fits the null hazard $\lambda(t\mid Z)=\exp\{g(t,Z)\}$ on the hunting sample
-   using the penalized negative counting-process log-likelihood;
-2. learns $\phi$, by default with a DNN, by minimizing exactly
-   $\sum_i V_i(\phi)^2-\sum_i V_i(\phi)$;
-3. fits engression for the joint conditional distribution
-   $P_{(X,T)\mid Z}$ on the test sample;
-4. constructs the orthogonalized held-out scores and reports the one-sided
-   standard-normal tail probability.
+## Optional RF estimators
 
-Preprocessing constants are estimated only on the hunting sample: `X` is
-min--max scaled, `Z` is standardized, and observed time is divided by the
-maximum hunting-sample time.
+Install the certified forest leaf solver and select RF for both hazards
+and the hunting direction:
 
-Hyperparameters are explicit immutable dataclasses:
+```bash
+python -m pip install -e '.[forest]'
+```
 
 ```python
-from scistest import (
-    DirectionConfig,
-    GeneratorConfig,
-    HazardConfig,
-    SciTestConfig,
-    scis_test,
-)
+from scistest import scis_test
 
-result = scis_test(
-    X, Z, T, Delta,
-    random_state=10,
-    hazard_config=HazardConfig(hidden_dims=(32,), epochs=100),
-    direction_config=DirectionConfig(hidden_dims=(32, 32), epochs=100),
-    generator_config=GeneratorConfig(num_layers=2, hidden_dim=100, epochs=100),
-    test_config=SciTestConfig(integration_points=100, generator_draws=100),
-)
+result = scis_test(X, Z, T, event, estimator="rf", random_state=1)
 ```
 
-### Random-forest direction estimator
+The default `estimator="nn"` retains neural hazards and direction. Both
+options implement **two data subsets**: the pilot hazard and direction use
+the hunting half; the scoring hazard `lambda_E` and conditional engression
+generator use the evaluation half. RF does not replace engression.
 
-The DNN remains the default. To estimate \(\phi\) with a random forest instead,
-pass `RandomForestDirectionConfig` as `direction_config`:
+RF first constructs tree partitions and then refits their leaf contributions
+under main6's penalized losses: mean survival negative log likelihood for
+each hazard, and `sum(V**2 - V) + eta_phi * ||gamma||_1` for the direction.
+The forest prediction sums effective leaf contributions; L1 penalizes these
+contributions, rather than conventional averaged leaf values.
+
+Omitted RF configurations use the total input size `n = len(T)`: 32 trees
+for both hazards, 16 trees for the direction, maximum depth 3, minimum leaf
+size 20, feature fraction 0.8, and penalties `5/n` and `50/n`, respectively.
+The two hazards use the same configuration and are fitted separately.
+The generator retains the NN simulation formulas below. Numerical integration
+and conditional sampling both use 100 points/draws by default.
+
+Use `forest_configs(n)` to obtain and customize this profile. Explicit
+`RandomForestHazardConfig` / `RandomForestDirectionConfig` objects override
+defaults independently, including when used to select mixed estimator types;
+their static dataclass defaults do not resolve a sample size automatically.
+The old `forest_simulation_configs` helper remains a compatibility alias for
+the profile constructor; it runs no simulation.
+
+RF simulation and data-application runners are deliberately excluded from
+this upload tree. The existing reproduction programs below use NN only.
+See [the two-split audit](docs/TWO_SPLIT_AUDIT.md) for equation mappings and
+numerical implementation details, and [the solver notes](docs/FOREST_L1_SOLVER.md)
+for convergence checks.
+
+When configuration objects are omitted, `scis_test` automatically uses the
+selected estimator's profile at `n = len(T)` **before splitting**. Each omitted
+configuration is resolved independently: for example, supplying only
+`direction_config` leaves hazard and generator settings dependent on `n`.
+An explicitly supplied configuration object is used as supplied, including
+its dataclass defaults. The profile helpers are also available explicitly:
 
 ```python
-from scistest import RandomForestDirectionConfig, scis_test
+from scistest.manuscript import simulation_configs, framingham_configs
 
-result = scis_test(
-    X, Z, T, Delta,
-    random_state=10,
-    direction_config=RandomForestDirectionConfig(
-        n_estimators=100,
-        max_depth=6,
-        min_samples_leaf=5,
-        n_jobs=-1,
-    ),
-)
+result = scis_test(X, Z, T, event, random_state=1,
+                   **simulation_configs(len(T)))
+# For the real-data application instead use **framingham_configs().
 ```
 
-The forest partitions the `(time, Z, X)` feature space. Conditional on those
-partitions, its terminal-node values are obtained by sparse least squares using
+The default simulation profile uses the total input size `n`: depth `floor(log10(n))`,
+width `floor(2*sqrt(n))`, learning rate `2/n`, L1 penalty `5/n` for hazard and
+direction, `floor(50*log(n)/log(20))` epochs, and engression layer parameter
+`1 + floor(log10(n))`. Integration uses **100 points by default**, following
+the manuscript and the author's explicit choice. Historical cluster figure
+runs used a different integration grid; see [reproduction notes](docs/MAIN6.md).
 
-$$
-\sum_i[V_i(\phi)^2-V_i(\phi)].
-$$
-
-Thus both direction estimators target the same criterion; only the function
-class and optimization method differ. The hazard and conditional-generator
-estimators are unchanged.
-
-## Aggregated p-value with inputs `(K, J, L)`
-
-The convenience interface refits the full scisTest procedure for all full-data
-splits and calibration subsamples:
+## Split aggregation
 
 ```python
 from scistest import aggregated_scis_test
 
-aggregated = aggregated_scis_test(
-    X, Z, T, Delta,
-    K=3,     # number of disjoint subsamples per permutation
-    J=5,     # independent permutations
-    L=6,     # random splits per full sample or subsample
-    random_state=20260918,
-)
-
-print(aggregated.aggregated_p_value) # smoothed right-tail p-value
-print(aggregated.empirical_p_value) # unsmoothed calibration fraction
+aggregate = aggregated_scis_test(X, Z, T, event,
+                                  K=3, J=10, L=3, random_state=1)
+print(aggregate.p_value_decimal)
+# Pass estimator="rf" to use RF for every underlying two-split test.
 ```
 
-The defaults are `K=3`, `J=5`, and `L=6`, so these three arguments may be
-omitted.
+Each of `J` permutations supplies `K` disjoint blocks of size `floor(n/K)`.
+For omitted configurations, full-data fits use `n` and calibration-subsample
+fits use their own size `floor(n/K)` in the formulas. Explicit configurations
+are shared unchanged across all fits.
+The method refits the complete test on each block and split, pools ranks of
+all calibration statistics, and computes a Gaussian-kernel-smoothed tail.
+The unsmoothed empirical tail and log probabilities are retained. Generic
+`aggregate_p_value` and `calibrate_aggregated_p_value` interfaces also accept
+other statistics or already computed matrices. The Framingham reproduction
+script reuses one calibration distribution per covariate across 1,000
+full-data repetitions, as in main6.
 
-Each permutation divides the data into `K` disjoint blocks of common size
+## Repository layout
 
-$$
-\texttt{subsample size}=\lfloor n/K\rfloor.
-$$
-
-The remaining `n % K` observations are unused in that permutation. Thus the
-number of calibration rows is
-
-$$
-B=JK.
-$$
-
-All \(BL\) subsample statistics are pooled for the randomized rank transform
-
-$$
-\widetilde H_{b\ell}=\Phi^{-1}[\frac{R_{b\ell}-1/2}{BL}].
-$$
-
-The full-sample and row-wise calibration aggregates are arithmetic means over
-the \(L\) split statistics. The primary result is the Gaussian-kernel-smoothed
-right tail used by the authors' MultiSplit implementation. The result also
-retains the strict empirical tail, whose resolution is `1 / B`. Because a
-publication-scale run fits `(B + 1) * L` complete tests, it can be expensive.
-
-For another asymptotically standard-normal split statistic, use the generic
-callback API:
-
-```python
-from scistest import aggregate_p_value
-
-def statistic(indices, split_seed):
-    # Subset the data, refit the complete base method using split_seed,
-    # and return one one-sided standard-normal statistic.
-    return my_statistic(indices, split_seed)
-
-aggregated = aggregate_p_value(
-    n=len(T),
-    statistic=statistic,
-    K=3,
-    J=5,
-    L=6,
-    random_state=20260918,
-)
+```text
+src/scistest/              installable method, aggregation and paper profiles
+src/scitest/               compatibility with the old local package name
+simulations/               four simulation groups, comparators and plotting
+  protocol.py              DGPs, hypothesis definitions and deterministic seeds
+  run.py                   checkpointed execution (local or Slurm task)
+  comparators/             deepTest and R vim/GCM/PCM adapters
+  summarize.py, plot.py     summaries and figures from newly computed fits
+dataApplication/           Framingham data loading, repeated aggregation and plot
+examples/                  quick demo and notebook with cleared outputs
+scripts/run_simulation.py  small illustrative experiment, not the paper protocol
+tests/                     aggregation, method and manuscript regressions
+docs/                      reproduction details and source fingerprints
 ```
 
-If the full and subsample statistics have already been computed, call
-`calibrate_aggregated_p_value(observed, subsampled, K, J, L, n=n)`. This is
-useful for checkpointed cluster runs.
+## Reproduce main6
 
-## Demo and simulation
-
-Run a quick single-split example:
+Run these commands **from the repository root** after installation:
 
 ```bash
-python examples/demo.py
+# Inspect the full 24,000-task simulation plan without fitting:
+python -m simulations.run --dry-run
+# Short execution check (reduced settings, unsuitable for reported results):
+python -m simulations.run --smoke --output /tmp/scistest-smoke
+# Paper simulations; can be split by --group and --sample-sizes:
+python -m simulations.run --workers 4 --output results/simulations
+python -m simulations.summarize --output results/simulations
+python -m simulations.plot --output results/simulations
+
+# Framingham: 18,540 fits, J=10, m=1552, L=3, R=1000:
+python -m dataApplication.run_framingham --dry-run
+python -m dataApplication.run_framingham --workers 4
+python -m dataApplication.plot
 ```
 
-For an interactive walkthrough of the DNN direction, random-forest direction,
-and `K`-based aggregation interfaces, open `examples/demo.ipynb`.
+For comparison methods and the complete-case data checks, see
+[simulations/README.md](simulations/README.md) and
+[dataApplication/README.md](dataApplication/README.md).
+These scripts compute results when invoked; **no fitted models, experiment
+results, source datasets or generated figures are distributed here**.
 
-Add `--aggregate` to demonstrate the complete aggregation workflow with small
-settings. Run a reproducible null/alternative experiment with:
-
-```bash
-python scripts/run_simulation.py \
-  --repetitions 20 \
-  --sample-size 400 \
-  --scenario both \
-  --output results/simulation.csv
-```
-
-Aggregation can be enabled with `--aggregate`; the command-line defaults are
-also `--K 3 --J 5 --L 6`. It is much more computationally demanding because
-every calibration statistic refits all nuisance models.
-
-## Tests
+## Develop and build
 
 ```bash
+python -m pip install -e '.[dev,experiments,forest]'
 pytest
 ruff check .
+python -m build
+python -m twine check dist/*
 ```
 
-## Reference
-Qixian Zhong and Rajen D. Shah (2026), “Conditional Independence Testing with Survival Data”.
+The wheel contains the importable library; the source distribution additionally
+contains the reproduction scripts, tests and documentation. Neither command
+publishes to GitHub or PyPI. Keep generated `dist/` files out of Git.
 
-Guo, F. Richard and Rajen D. Shah (2025),
-“Rank-transformed subsampling: inference for multiple data splitting and
-exchangeable p-values,” *Journal of the Royal Statistical Society Series B*,
-87(1), 256–286.
+MIT License. Aggregation follows Guo and Shah (2025), *Rank-transformed
+subsampling: inference for multiple data splitting and exchangeable p-values*,
+JRSS Series B 87(1), 256–286.

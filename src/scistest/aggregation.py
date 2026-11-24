@@ -17,6 +17,7 @@ from .config import (
     GeneratorConfig,
     HazardConfig,
     RandomForestDirectionConfig,
+    RandomForestHazardConfig,
     SciTestConfig,
 )
 from .core import scis_test, validate_survival_data
@@ -101,10 +102,7 @@ def make_subsamples(
     rng = np.random.default_rng(int(random_state))
     subsample_size = n // K
     return np.vstack(
-        [
-            rng.permutation(n)[: K * subsample_size].reshape(K, subsample_size)
-            for _ in range(J)
-        ]
+        [rng.permutation(n)[: K * subsample_size].reshape(K, subsample_size) for _ in range(J)]
     )
 
 
@@ -187,9 +185,7 @@ def calibrate_aggregated_p_value(
         raise ValueError(f"subsample_statistics must have shape (B, {L})")
     expected_B = J * K
     if subsampled.shape[0] != expected_B:
-        raise ValueError(
-            f"Expected B=J*K={expected_B} subsample rows; got {subsampled.shape[0]}"
-        )
+        raise ValueError(f"Expected B=J*K={expected_B} subsample rows; got {subsampled.shape[0]}")
     if not np.isfinite(observed).all() or not np.isfinite(subsampled).all():
         raise ValueError("All statistics must be finite")
 
@@ -207,9 +203,7 @@ def calibrate_aggregated_p_value(
         if subsample_size is None:
             subsample_size = subsample_indices.shape[1]
         if subsample_indices.shape != (B, subsample_size):
-            raise ValueError(
-                f"subsample_indices must have shape ({B}, {subsample_size})"
-            )
+            raise ValueError(f"subsample_indices must have shape ({B}, {subsample_size})")
 
     transformed = normal_rank_transform(subsampled, random_state=random_state)
     calibration = transformed.mean(axis=1, dtype=np.float64)
@@ -217,8 +211,7 @@ def calibrate_aggregated_p_value(
     exceedance_count = int(np.count_nonzero(calibration > aggregate_statistic))
     bandwidth = _bandwidth_nrd0(calibration)
     log_p_value = float(
-        logsumexp(log_ndtr((calibration - aggregate_statistic) / bandwidth))
-        - math.log(B)
+        logsumexp(log_ndtr((calibration - aggregate_statistic) / bandwidth)) - math.log(B)
     )
     log_p_value = min(0.0, log_p_value)
     return AggregatedPValueResult(
@@ -272,10 +265,7 @@ def aggregate_p_value(
     subsample_seed = int(subsample_seed_sequence.generate_state(1)[0])
     subsamples = make_subsamples(n, K, J, random_state=subsample_seed)
     B = len(subsamples)
-    fit_seeds = [
-        int(child.generate_state(1)[0])
-        for child in fit_seed_sequence.spawn((B + 1) * L)
-    ]
+    fit_seeds = [int(child.generate_state(1)[0]) for child in fit_seed_sequence.spawn((B + 1) * L)]
 
     observed = np.empty(L, dtype=np.float64)
     full_indices = np.arange(n, dtype=np.int64)
@@ -313,7 +303,8 @@ def aggregated_scis_test(
     L: int = 6,
     *,
     random_state: int = 1,
-    hazard_config: HazardConfig | None = None,
+    estimator: str = "nn",
+    hazard_config: HazardConfig | RandomForestHazardConfig | None = None,
     direction_config: DirectionConfig | RandomForestDirectionConfig | None = None,
     generator_config: GeneratorConfig | None = None,
     test_config: SciTestConfig | None = None,
@@ -321,21 +312,23 @@ def aggregated_scis_test(
     """Run scisTest repeatedly and return its Guo--Shah aggregated p-value.
 
     Every full-sample split and every subsample split refits all nuisance
-    components. Consequently this function can require substantial compute for
+    components with the two-split procedure. ``estimator`` selects "nn" or
+    "rf", as in :func:`scis_test`. Omitted configurations use that profile at
+    each input's size: n for the full dataset, floor(n / K) for subsamples.
+    Explicit configurations are shared unchanged across these fits.
+    Consequently this function can require substantial compute for
     publication-scale ``J`` and ``L``.
     """
 
-    x_array, z_array, time_array, event_array = validate_survival_data(
-        x, z, time, event
-    )
+    x_array, z_array, time_array, event_array = validate_survival_data(x, z, time, event)
+    if estimator not in {"nn", "rf"}:
+        raise ValueError("estimator must be 'nn' or 'rf'")
     K = int(K)
     if K < 2:
         raise ValueError("K must be at least two")
     subsample_size = len(time_array) // K
     if subsample_size < 12:
-        raise ValueError(
-            "floor(n / K) must be at least 12 because every subsample runs scisTest"
-        )
+        raise ValueError("floor(n / K) must be at least 12 because every subsample runs scisTest")
 
     def statistic(indices: NDArray[np.int64], split_seed: int) -> float:
         result = scis_test(
@@ -344,6 +337,7 @@ def aggregated_scis_test(
             time_array[indices],
             event_array[indices],
             random_state=split_seed,
+            estimator=estimator,
             hazard_config=hazard_config,
             direction_config=direction_config,
             generator_config=generator_config,

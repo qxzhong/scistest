@@ -83,9 +83,7 @@ class RandomForestDirection:
             time = time[:, None]
         features = torch.cat((time, z, x), dim=1).detach().cpu().numpy()
         predictions = np.zeros(len(features), dtype=np.float64)
-        for estimator, values in zip(
-            self.forest.estimators_, self.leaf_values, strict=True
-        ):
+        for estimator, values in zip(self.forest.estimators_, self.leaf_values, strict=True):
             predictions += values[estimator.apply(features)]
         predictions /= len(self.forest.estimators_)
         return torch.as_tensor(
@@ -135,11 +133,10 @@ class EngressionGenerator:
 
         if self.model is None:
             raise RuntimeError("The conditional generator has not been fitted")
-        generated = self.model.sample(z, sample_size=draws, expand_dim=True)
-        # engression returns (subjects, response dimension, draws).
-        if generated.ndim == 2:  # engression squeezes the draw axis when draws == 1
-            generated = generated.unsqueeze(-1)
-        generated = generated.permute(0, 2, 1)
+        # Match the cluster implementation's independent one-draw predictions.
+        generated = self.model.predict(
+            z.repeat_interleave(draws, dim=0), target="mean", sample_size=1
+        ).reshape(len(z), draws, self.x_dim + 1)
         generated_x = generated[:, :, : self.x_dim]
         # Engression has an unconstrained output; positivity enforces the time support.
         generated_time = generated[:, :, self.x_dim].abs()

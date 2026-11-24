@@ -1,7 +1,8 @@
-"""Single-split scisTest for conditional independence with right censoring."""
+"""One two-split scisTest for conditional independence with right censoring."""
 
 from __future__ import annotations
 
+import copy
 import math
 import random
 from dataclasses import asdict, dataclass, field
@@ -10,8 +11,6 @@ from typing import Any
 import numpy as np
 import torch
 from numpy.typing import ArrayLike, NDArray
-from scipy.sparse import coo_matrix, hstack
-from scipy.sparse.linalg import lsqr
 from scipy.stats import norm
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
@@ -27,11 +26,14 @@ from .config import (
     GeneratorConfig,
     HazardConfig,
     RandomForestDirectionConfig,
+    RandomForestHazardConfig,
     SciTestConfig,
 )
+from .manuscript import forest_configs, simulation_configs
 
 DirectionEstimatorConfig = DirectionConfig | RandomForestDirectionConfig
 DirectionModel = DirectionNetwork | RandomForestDirection
+HazardEstimatorConfig = HazardConfig | RandomForestHazardConfig
 
 
 @dataclass(frozen=True)
@@ -54,6 +56,9 @@ class ScisTestResult:
     train_indices: NDArray[np.int64] = field(repr=False)
     test_indices: NDArray[np.int64] = field(repr=False)
     scores: NDArray[np.float64] = field(repr=False)
+    scoring_hazard: str = "evaluation"
+    direction_objective: str = "quadratic"
+    nuisance_diagnostics: dict[str, Any] = field(default_factory=dict)
 
     def as_dict(self, *, include_arrays: bool = False) -> dict[str, Any]:
         """Return a JSON-friendly representation of the result."""
@@ -133,7 +138,7 @@ def validate_survival_data(
 
 
 def _validate_configs(
-    hazard: HazardConfig,
+    hazard: HazardEstimatorConfig,
     direction: DirectionEstimatorConfig,
     generator: GeneratorConfig,
     test: SciTestConfig,
@@ -143,8 +148,6 @@ def _validate_configs(
     if not 0 < test.alpha < 1:
         raise ValueError("alpha must be strictly between 0 and 1")
     integer_values: dict[str, int] = {
-        "hazard epochs": hazard.epochs,
-        "hazard batch_size": hazard.batch_size,
         "generator epochs": generator.epochs,
         "generator batch_size": generator.batch_size,
         "generator num_layers": generator.num_layers,
@@ -154,8 +157,27 @@ def _validate_configs(
         "generator_draws": test.generator_draws,
         "score_chunk_size": test.score_chunk_size,
     }
+    if isinstance(hazard, HazardConfig):
+        integer_values.update(
+            {"hazard epochs": hazard.epochs, "hazard batch_size": hazard.batch_size}
+        )
+    else:
+        integer_values.update(
+            {
+                "hazard n_estimators": hazard.n_estimators,
+                "hazard min_samples_leaf": hazard.min_samples_leaf,
+                "hazard max_depth": hazard.max_depth,
+                "hazard solver_max_iterations": hazard.solver_max_iterations,
+            }
+        )
+        if hazard.solver_tolerance <= 0 or hazard.max_abs_log_hazard <= 0:
+            raise ValueError("Forest hazard solver tolerance and log-hazard bound must be positive")
     if isinstance(direction, DirectionConfig):
         integer_values["direction epochs"] = direction.epochs
+        if direction.objective not in {"quadratic", "standardized"}:
+            raise ValueError("direction objective must be quadratic or standardized")
+        if not np.isfinite(direction.l1_penalty) or direction.l1_penalty < 0:
+            raise ValueError("direction L1 penalty must be finite and nonnegative")
     else:
         integer_values.update(
             {
@@ -165,10 +187,7 @@ def _validate_configs(
         )
         if direction.max_depth is not None:
             integer_values["direction max_depth"] = direction.max_depth
-        if (
-            direction.solver_max_iterations is not None
-            and direction.solver_max_iterations < 1
-        ):
+        if direction.solver_max_iterations is not None and direction.solver_max_iterations < 1:
             raise ValueError("direction solver_max_iterations must be positive or None")
         if direction.solver_tolerance <= 0:
             raise ValueError("direction solver_tolerance must be positive")
@@ -176,16 +195,19 @@ def _validate_configs(
         bad = ", ".join(name for name, value in integer_values.items() if value < 1)
         raise ValueError(f"The following settings must be positive integers: {bad}")
     positive_values: dict[str, float] = {
-        "hazard learning_rate": hazard.learning_rate,
         "generator learning_rate": generator.learning_rate,
     }
+    if isinstance(hazard, HazardConfig):
+        positive_values["hazard learning_rate"] = hazard.learning_rate
     if isinstance(direction, DirectionConfig):
         positive_values["direction learning_rate"] = direction.learning_rate
     if any(value <= 0 for value in positive_values.values()):
         bad = ", ".join(name for name, value in positive_values.items() if value <= 0)
         raise ValueError(f"The following settings must be positive: {bad}")
-    if hazard.l1_penalty < 0:
-        raise ValueError("The hazard L1 penalty must be nonnegative")
+    if not np.isfinite(hazard.l1_penalty) or hazard.l1_penalty < 0:
+        raise ValueError("The hazard L1 penalty must be finite and nonnegative")
+    if not np.isfinite(direction.l1_penalty) or direction.l1_penalty < 0:
+        raise ValueError("The direction L1 penalty must be finite and nonnegative")
 
 
 def _prepare_data(
@@ -252,10 +274,14 @@ def _fit_hazard(
     z: torch.Tensor,
     time: torch.Tensor,
     event: torch.Tensor,
-    config: HazardConfig,
+    config: HazardEstimatorConfig,
     integration_points: int,
     seed: int,
 ) -> HazardNetwork:
+    if isinstance(config, RandomForestHazardConfig):
+        from ._forest import fit_hazard
+
+        return fit_hazard(z, time, event, config, integration_points, seed)
     _set_random_seeds(seed)
     model = HazardNetwork(z.shape[1], config.hidden_dims)
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
@@ -281,7 +307,8 @@ def _fit_hazard(
             )
             integrated_hazard = hazard_grid.sum(dim=1) * time_batch / integration_points
             log_likelihood = (
-                event_batch * model.log_hazard(time_batch, z_batch) - integrated_hazard
+                event_batch * torch.clamp(model.log_hazard(time_batch, z_batch), -15.0, 15.0)
+                - integrated_hazard
             )
             loss = -log_likelihood.mean() + config.l1_penalty * _l1_norm(model)
             if not torch.isfinite(loss):
@@ -336,24 +363,40 @@ def _fit_dnn_direction(
     direction = DirectionNetwork(z.shape[1], x.shape[1], config.hidden_dims)
     optimizer = torch.optim.Adam(direction.parameters(), lr=config.learning_rate)
 
+    best_state = None
+    best_objective = -math.inf
     for _ in range(config.epochs):
         direction.train()
-        scores = _raw_direction_scores(
-            direction, hazard, z, x, time, event, integration_points
-        )
-        loss = _quadratic_direction_loss(scores)
+        scores = _raw_direction_scores(direction, hazard, z, x, time, event, integration_points)
+        if config.objective == "standardized":
+            objective = scores.mean() / torch.sqrt((scores - scores.mean()).square().mean() + 1e-8)
+            criterion = -objective
+            if float(objective.detach()) > best_objective:
+                best_objective = float(objective.detach())
+                best_state = copy.deepcopy(direction.state_dict())
+        else:
+            criterion = _quadratic_direction_loss(scores)
+        loss = criterion + config.l1_penalty * _l1_norm(direction)
         if not torch.isfinite(loss):
             raise RuntimeError("The direction loss became non-finite")
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
-    # Report the criterion attained by the final fixed-epoch fit.
+    # The application retains the best standardized hunting checkpoint.
+    if best_state is not None:
+        direction.load_state_dict(best_state)
     with torch.no_grad():
         final_scores = _raw_direction_scores(
             direction, hazard, z, x, time, event, integration_points
         )
-        final_loss = _quadratic_direction_loss(final_scores)
+        if config.objective == "standardized":
+            criterion = -final_scores.mean() / torch.sqrt(
+                (final_scores - final_scores.mean()).square().mean() + 1e-8
+            )
+        else:
+            criterion = _quadratic_direction_loss(final_scores)
+        final_loss = criterion + config.l1_penalty * _l1_norm(direction)
     if not torch.isfinite(final_loss):
         raise RuntimeError("The final direction loss is non-finite")
     direction.eval()
@@ -363,105 +406,18 @@ def _fit_dnn_direction(
 
 
 def _fit_random_forest_direction(
-    hazard: HazardNetwork,
-    z: torch.Tensor,
-    x: torch.Tensor,
-    time: torch.Tensor,
-    event: torch.Tensor,
-    config: RandomForestDirectionConfig,
-    integration_points: int,
-    seed: int,
-) -> tuple[RandomForestDirection, float]:
-    """Fit forest partitions and solve their leaf values under the paper's loss."""
+    hazard,
+    z,
+    x,
+    time,
+    event,
+    config,
+    integration_points,
+    seed,
+):
+    from ._forest import fit_direction
 
-    try:
-        from sklearn.ensemble import RandomForestRegressor
-    except ImportError as exc:  # pragma: no cover - installation error path
-        raise ImportError(
-            "The random-forest direction estimator requires scikit-learn"
-        ) from exc
-
-    _set_random_seeds(seed)
-    n = len(time)
-    grid = _right_riemann_grid(time, integration_points)
-    z_grid = z[:, None, :].expand(n, integration_points, z.shape[1])
-    x_grid = x[:, None, :].expand(n, integration_points, x.shape[1])
-    flat_z = z_grid.reshape(-1, z.shape[1])
-    flat_x = x_grid.reshape(-1, x.shape[1])
-    flat_time = grid.reshape(-1)
-    with torch.no_grad():
-        hazard_grid = hazard.hazard(flat_time, flat_z).reshape(n, integration_points)
-        coefficients = -hazard_grid * time[:, None] / integration_points
-        coefficients[:, -1] += event
-
-    features = (
-        torch.cat((flat_time[:, None], flat_z, flat_x), dim=1)
-        .detach()
-        .cpu()
-        .numpy()
-    )
-    coefficient_values = coefficients.detach().cpu().numpy().astype(np.float64)
-
-    # The pointwise coefficients are the negative functional gradient at phi=0;
-    # fitting them supplies data-adaptive random-forest partitions. The original
-    # subject-level objective, rather than this auxiliary regression loss, is
-    # used below to determine all terminal-node values.
-    forest = RandomForestRegressor(
-        n_estimators=config.n_estimators,
-        max_depth=config.max_depth,
-        min_samples_leaf=config.min_samples_leaf,
-        max_features=config.max_features,
-        bootstrap=config.bootstrap,
-        n_jobs=config.n_jobs,
-        random_state=seed,
-    )
-    forest.fit(features, coefficient_values.reshape(-1))
-
-    subject_rows = np.repeat(np.arange(n, dtype=np.int64), integration_points)
-    flat_coefficients = coefficient_values.reshape(-1)
-    design_blocks = []
-    leaf_node_ids: list[NDArray[np.int64]] = []
-    for estimator in forest.estimators_:
-        nodes = estimator.apply(features)
-        unique_nodes, local_columns = np.unique(nodes, return_inverse=True)
-        block = coo_matrix(
-            (flat_coefficients, (subject_rows, local_columns)),
-            shape=(n, len(unique_nodes)),
-        ).tocsr()
-        design_blocks.append(block / config.n_estimators)
-        leaf_node_ids.append(unique_nodes.astype(np.int64, copy=False))
-
-    # sum(V_i^2 - V_i) = sum((V_i - 1/2)^2) - n/4.  For fixed forest
-    # partitions, V is linear in the leaf values, so sparse least squares gives
-    # the minimizer over the resulting random-forest function class.
-    design = hstack(design_blocks, format="csr")
-    solution = lsqr(
-        design,
-        np.full(n, 0.5, dtype=np.float64),
-        atol=config.solver_tolerance,
-        btol=config.solver_tolerance,
-        iter_lim=config.solver_max_iterations,
-    )[0]
-    if not np.isfinite(solution).all():
-        raise RuntimeError("The random-forest direction fit became non-finite")
-
-    leaf_values: list[NDArray[np.float64]] = []
-    position = 0
-    for estimator, nodes in zip(forest.estimators_, leaf_node_ids, strict=True):
-        values = np.zeros(estimator.tree_.node_count, dtype=np.float64)
-        values[nodes] = solution[position : position + len(nodes)]
-        leaf_values.append(values)
-        position += len(nodes)
-
-    direction = RandomForestDirection(forest, leaf_values)
-    with torch.no_grad():
-        final_scores = _raw_direction_scores(
-            direction, hazard, z, x, time, event, integration_points
-        )
-        final_loss = _quadratic_direction_loss(final_scores)
-    if not torch.isfinite(final_loss):
-        raise RuntimeError("The final random-forest direction loss is non-finite")
-    return direction, float(final_loss)
+    return fit_direction(hazard, z, x, time, event, config, integration_points, seed)
 
 
 def _fit_direction(
@@ -478,9 +434,7 @@ def _fit_direction(
         return _fit_random_forest_direction(
             hazard, z, x, time, event, config, integration_points, seed
         )
-    return _fit_dnn_direction(
-        hazard, z, x, time, event, config, integration_points, seed
-    )
+    return _fit_dnn_direction(hazard, z, x, time, event, config, integration_points, seed)
 
 
 def _orthogonalized_scores(
@@ -505,9 +459,7 @@ def _orthogonalized_scores(
             event_chunk = event[start:stop]
             batch_size = len(time_chunk)
 
-            generated_x, generated_time = conditional_generator.sample(
-                z_chunk, generator_draws
-            )
+            generated_x, generated_time = conditional_generator.sample(z_chunk, generator_draws)
             grid = _right_riemann_grid(time_chunk, integration_points)
             z_grid = (
                 z_chunk[:, None, :]
@@ -520,16 +472,12 @@ def _orthogonalized_scores(
                 .reshape(-1, x.shape[1])
             )
             time_grid = grid.reshape(-1)
-            hazard_grid = hazard.hazard(time_grid, z_grid).reshape(
-                batch_size, integration_points
-            )
+            hazard_grid = hazard.hazard(time_grid, z_grid).reshape(batch_size, integration_points)
             observed_phi_grid = direction(time_grid, z_grid, x_grid).reshape(
                 batch_size, integration_points
             )
 
-            expanded_time = grid[:, :, None].expand(
-                batch_size, integration_points, generator_draws
-            )
+            expanded_time = grid[:, :, None].expand(batch_size, integration_points, generator_draws)
             expanded_z = z_chunk[:, None, None, :].expand(
                 batch_size, integration_points, generator_draws, z.shape[1]
             )
@@ -558,8 +506,7 @@ def _orthogonalized_scores(
             )
             # The last right-Riemann endpoint equals the observed time.
             event_term = event_chunk.double() * (
-                direction(time_chunk, z_chunk, x_chunk).double()
-                - m_phi_grid[:, -1].double()
+                direction(time_chunk, z_chunk, x_chunk).double() - m_phi_grid[:, -1].double()
             )
             score_chunks.append(event_term - integral)
     return torch.cat(score_chunks)
@@ -572,7 +519,8 @@ def scis_test(
     event: ArrayLike,
     *,
     random_state: int = 1,
-    hazard_config: HazardConfig | None = None,
+    estimator: str = "nn",
+    hazard_config: HazardEstimatorConfig | None = None,
     direction_config: DirectionEstimatorConfig | None = None,
     generator_config: GeneratorConfig | None = None,
     test_config: SciTestConfig | None = None,
@@ -582,15 +530,32 @@ def scis_test(
     ``time`` is the observed time ``min(U, C)`` and ``event`` is one when the
     event is observed. The returned p-value is the one-sided standard-normal
     tail probability used by the paper.
+
+    ``estimator="nn"`` uses neural hazards and direction; ``estimator="rf"``
+    uses forests for both hazards and the direction. Both retain engression
+    for the conditional projection. Only two data subsets are used.
+
+    Omitted configuration objects use the selected estimator's manuscript
+    formulas at the total input size, before splitting. Explicit configuration
+    objects override the corresponding defaults independently.
     """
 
-    x_array, z_array, time_array, event_array = validate_survival_data(
-        x, z, time, event
+    x_array, z_array, time_array, event_array = validate_survival_data(x, z, time, event)
+    if estimator not in {"nn", "rf"}:
+        raise ValueError("estimator must be 'nn' or 'rf'")
+    defaults = (
+        forest_configs(len(time_array))
+        if estimator == "rf"
+        else simulation_configs(len(time_array))
     )
-    hazard_config = hazard_config or HazardConfig()
-    direction_config = direction_config or DirectionConfig()
-    generator_config = generator_config or GeneratorConfig()
-    test_config = test_config or SciTestConfig()
+    hazard_config = defaults["hazard_config"] if hazard_config is None else hazard_config
+    direction_config = (
+        defaults["direction_config"] if direction_config is None else direction_config
+    )
+    generator_config = (
+        defaults["generator_config"] if generator_config is None else generator_config
+    )
+    test_config = defaults["test_config"] if test_config is None else test_config
     _validate_configs(hazard_config, direction_config, generator_config, test_config)
     random_state = int(random_state)
     if random_state < 0:
@@ -627,12 +592,19 @@ def scis_test(
     # The estimator of P_(X,T)|Z is fitted on the held-out test sample.
     _set_random_seeds(random_state + 4)
     conditional_generator = EngressionGenerator(x_dim=data.x_test.shape[1])
-    conditional_generator.fit(
-        data.z_test, data.x_test, data.time_test, generator_config
+    conditional_generator.fit(data.z_test, data.x_test, data.time_test, generator_config)
+    # main6: use the same fitting rule on the evaluation half for lambda_E.
+    evaluation_hazard = _fit_hazard(
+        data.z_test,
+        data.time_test,
+        data.event_test,
+        hazard_config,
+        test_config.integration_points,
+        random_state + 6,
     )
     _set_random_seeds(random_state + 5)
     scores = _orthogonalized_scores(
-        hazard,
+        evaluation_hazard,
         direction,
         conditional_generator,
         data.z_test,
@@ -648,7 +620,7 @@ def scis_test(
     score_mean = scores.mean()
     # This matches the paper's n^{-1} variance convention (ddof=0).
     score_sd = torch.sqrt(torch.mean((scores - score_mean).square()))
-    if not torch.isfinite(scores).all() or not torch.isfinite(score_sd) or score_sd <= 1e-12:
+    if not torch.isfinite(scores).all() or not torch.isfinite(score_sd) or score_sd <= 0:
         raise RuntimeError("The held-out scores are non-finite or have zero variance")
 
     standardized_score_mean = score_mean / score_sd
@@ -672,6 +644,21 @@ def scis_test(
         direction_loss=direction_loss,
         time_scale=data.time_scale,
         random_state=random_state,
+        scoring_hazard="evaluation",
+        nuisance_diagnostics={
+            name: model.diagnostics
+            for name, model in (
+                ("hazard", hazard),
+                ("hazard_evaluation", evaluation_hazard),
+                ("direction", direction),
+            )
+            if hasattr(model, "diagnostics")
+        },
+        direction_objective=(
+            direction_config.objective
+            if isinstance(direction_config, DirectionConfig)
+            else "forest_quadratic"
+        ),
         train_indices=data.train_indices.numpy(),
         test_indices=data.test_indices.numpy(),
         scores=scores.numpy(),
@@ -680,3 +667,8 @@ def scis_test(
 
 # Camel-case alias for the name used in the paper. PEP 8 users can call scis_test.
 scisTest = scis_test
+
+# Backward-compatible spellings.
+sci_test = scis_test
+sciTest = scis_test
+SciTestResult = ScisTestResult

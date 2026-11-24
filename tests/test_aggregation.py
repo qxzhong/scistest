@@ -50,9 +50,7 @@ def test_calibration_returns_smoothed_and_empirical_tails() -> None:
             [1.1, 1.2, 1.4],
         ]
     )
-    result = calibrate_aggregated_p_value(
-        observed, subsampled, 3, 2, 3, n=35, random_state=3
-    )
+    result = calibrate_aggregated_p_value(observed, subsampled, 3, 2, 3, n=35, random_state=3)
     assert result.B == 6
     assert result.K == 3
     assert result.subsample_size == 11

@@ -127,13 +127,8 @@ def main() -> None:
                     "fit_seed": fit_seed,
                 }
             rows.append(row)
-            displayed_p_value = (
-                row["aggregated_p_value"] if args.aggregate else row["p_value"]
-            )
-            print(
-                f"{scenario} {replication + 1}/{args.repetitions}: "
-                f"p={displayed_p_value}"
-            )
+            displayed_p_value = row["aggregated_p_value"] if args.aggregate else row["p_value"]
+            print(f"{scenario} {replication + 1}/{args.repetitions}: p={displayed_p_value}")
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = list(rows[0])
